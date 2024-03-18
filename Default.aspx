@@ -25,7 +25,8 @@
               </ContentTemplate>
         </asp:UpdatePanel>
         <br />
-        <asp:Button ID="Button1" runat="server" Text="Submit" OnClick="Button1_Click" />
+        <asp:Button ID="SubmitButton" runat="server" Text="Submit" OnClick="SubmitButton_Click" Visible="false" />
+
     </form>
 </body>
 </html>
