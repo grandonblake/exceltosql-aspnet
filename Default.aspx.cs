@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Web;
@@ -32,11 +33,8 @@ namespace exceltosql
             if (ExcelFileUpload.HasFile)
             {
                 string filePath = Server.MapPath("~/Files/") + ExcelFileUpload.FileName;
-                ViewState["filePath"] = filePath;
                 ExcelFileUpload.SaveAs(filePath); // saves on the local directory of the project under "Files" folder
-                System.Diagnostics.Debug.WriteLine(filePath);
                 string FileExtension = Path.GetExtension(filePath); // gets the extension of the uploaded file
-                System.Diagnostics.Debug.WriteLine(FileExtension);
 
                 if (File.Exists(filePath))
                 {
@@ -49,34 +47,36 @@ namespace exceltosql
                         int rowCount = worksheet.Dimension.Rows;
                         int colCount = worksheet.Dimension.Columns;
 
-                        ViewState["rowCount"] = rowCount;
-                        ViewState["colCount"] = colCount;
-
                         List<string> excelColumns = new List<string>();
                         for (int col = 1; col <= colCount; col++)
                         {
                             excelColumns.Add(worksheet.Cells[1, col].Value?.ToString() ?? "");
                         }
 
+                        // Calls the function to get the table columns of the SQL database
                         List<string> sqlColumns = GetSqlTableColumns();
 
-                        List<List<string>> cellData = new List<List<string>>();
+                        DataTable excelData = new DataTable();
+                        for (int i = 0; i < excelColumns.Count; i++)
+                        {
+                            excelData.Columns.Add(excelColumns[i]); // add columns of excel file to excelData
+                        }
+
                         for (int row = 1; row <= rowCount; row++)
                         {
-                            List<string> rowData = new List<string>();
+                            DataRow dataRow = excelData.NewRow();
                             for (int col = 1; col <= colCount; col++)
                             {
-                                rowData.Add(worksheet.Cells[row, col].Value?.ToString() ?? "");
+                                dataRow[col - 1] = worksheet.Cells[row, col].Value?.ToString() ?? ""; // add rows of excel file to excelData
                             }
-                            cellData.Add(rowData);
+                            excelData.Rows.Add(dataRow);
                         }
-                        
-                        // Pass data to the view
-                        ViewState["excelColumns"] = excelColumns;
-                        ViewState["sqlColumns"] = sqlColumns;
-                        ViewState["cellData"] = cellData;
 
-                        // Call a function to regenerate the form with dynamic elements
+                        ViewState["excelColumns"] = excelColumns; // excel column names only
+                        ViewState["sqlColumns"] = sqlColumns; // sql column names only
+                        ViewState["excelData"] = excelData; // content of excel cells (with column names)
+
+                        // Call the function to regenerate the form with dynamic elements
                         GenerateMappingForm();
 
                         package.Dispose(); // Dispose the package after use
@@ -87,10 +87,6 @@ namespace exceltosql
                     {
                         Response.Write("Wrong file extension");
                     }
-                }
-                else
-                {
-                    // Handle case where the file does not exist
                 }
             }
             else
@@ -104,7 +100,7 @@ namespace exceltosql
             List<string> columnNames = new List<string>();
             using (SqlConnection connection = new SqlConnection(connectionString))
             {
-                string tableName = "cars"; // Your table name
+                string tableName = "cars"; // the table name
                 string query = $"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{tableName}'";
 
                 SqlCommand command = new SqlCommand(query, connection);
@@ -123,23 +119,23 @@ namespace exceltosql
 
         private void GenerateMappingForm()
         {
-            mappingContainer.Controls.Clear(); // Clear any existing controls
+            mappingContainer.Controls.Clear();
 
             // Fetch the data you stored in ViewState
-            List<string> excelColumns = (List<string>)ViewState["excelColumns"];
-            List<string> sqlColumns = (List<string>)ViewState["sqlColumns"];
+            List<string> excelColumns = (List<string>)ViewState["excelColumns"]; // excel column names only
+            List<string> sqlColumns = (List<string>)ViewState["sqlColumns"]; // sql column names only
 
             // Create DropDownLists dynamically
             for (int i = 0; i < excelColumns.Count; i++)
             {
                 Label excelLabel = new Label();
-                excelLabel.Text = excelColumns[i];
+                excelLabel.Text = excelColumns[i]; // the label for the excel column name
 
-                DropDownList sqlDropDown = new DropDownList();
+                DropDownList sqlDropDown = new DropDownList(); // the dropdown list for the sql column name
                 sqlDropDown.EnableViewState = true;
                 sqlDropDown.ID = "sqlColumnMapping_" + i;
 
-                sqlDropDown.Items.Add("None");
+                sqlDropDown.Items.Add("None"); //the "None" option
                 // Populate SQL Columns
                 foreach (string sqlCol in sqlColumns)
                 {
@@ -154,35 +150,77 @@ namespace exceltosql
 
         protected void SubmitButton_Click(object sender, EventArgs e)
         {
-            // Fetch data from ViewState
-            List<string> excelColumns = (List<string>)ViewState["excelColumns"];
-            List<List<string>> cellData = (List<List<string>>)ViewState["cellData"];
-
-            // Create DataTable
-            DataTable excelData = new DataTable();
-            for (int i = 0; i < excelColumns.Count; i++)
-            {
-                excelData.Columns.Add(excelColumns[i]);
-            }
-
-            // Populate DataTable from cellData
-            foreach (List<string> rowData in cellData)
-            {
-                DataRow dataRow = excelData.NewRow();
-                for (int i = 0; i < rowData.Count; i++)
-                {
-                    dataRow[i] = rowData[i];
-                }
-                excelData.Rows.Add(dataRow);
-            }
-
             // Mappings
             Dictionary<string, string> mappings = GetColumnMappings();
 
-            ViewState["excelData"] = excelData;
-            ViewState["columnMapping"] = mappings;
+            System.Diagnostics.Debug.WriteLine("mappings");
+            foreach (KeyValuePair<string, string> kvp in mappings)
+            {
+                System.Diagnostics.Debug.WriteLine($"Key = {kvp.Key}, Value = {kvp.Value}");
+            }
 
-            // *** SQL IMPORT LOGIC WOULD GO HERE ***  
+            DataTable excelData = (DataTable)ViewState["excelData"]; // gets content of cells of excel file
+
+            System.Diagnostics.Debug.WriteLine("excelData");
+            foreach (DataRow row in excelData.Rows)
+            {
+                List<string> cellValues = new List<string>();
+                foreach (DataColumn column in excelData.Columns)
+                {
+                    cellValues.Add(row[column].ToString());
+                }
+                Debug.WriteLine(string.Join(", ", cellValues));
+            }
+
+            Dictionary<string, List<string>> mappedData = new Dictionary<string, List<string>>();
+
+            foreach (KeyValuePair<string, string> mapping in mappings)
+            {
+                mappedData[mapping.Value] = new List<string>();
+            }
+
+            for (int i = 1; i < excelData.Rows.Count; i++)
+            {
+                DataRow row = excelData.Rows[i];
+                foreach (DataColumn column in excelData.Columns)
+                {
+                    if (mappings.ContainsKey(column.ColumnName))
+                    {
+                        mappedData[mappings[column.ColumnName]].Add(row[column].ToString());
+                    }
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine("mappedData");
+            foreach (KeyValuePair<string, List<string>> kvp in mappedData)
+            {
+                System.Diagnostics.Debug.WriteLine($"{kvp.Key}: {string.Join(", ", kvp.Value)}");
+            }
+
+            List<Dictionary<string, string>> dataToBeInserted = new List<Dictionary<string, string>>();
+
+            for (int i = 0; i < mappedData.First().Value.Count; i++)
+            {
+                Dictionary<string, string> row = new Dictionary<string, string>();
+                foreach (KeyValuePair<string, List<string>> kvp in mappedData)
+                {
+                    row[kvp.Key] = kvp.Value[i];
+                }
+                dataToBeInserted.Add(row);
+            }
+
+            System.Diagnostics.Debug.WriteLine("dataToBeInserted");
+            foreach (Dictionary<string, string> row in dataToBeInserted)
+            {
+                List<string> cellValues = new List<string>();
+                foreach (KeyValuePair<string, string> kvp in row)
+                {
+                    cellValues.Add($"{kvp.Key}: {kvp.Value}");
+                }
+                Debug.WriteLine("{" + string.Join(", ", cellValues) + "}");
+            }
+
+
         }
 
         private Dictionary<string, string> GetColumnMappings()
@@ -196,16 +234,19 @@ namespace exceltosql
                 {
                     DropDownList sqlDropDown = (DropDownList)control;
 
-                    // Get the corresponding Excel column (you might need to adjust how to retrieve it based on your UI structure)
-                    string excelColumn = FindCorrespondingExcelColumn(sqlDropDown);
+                    // Get the corresponding Excel column
+                    Control previousControl = sqlDropDown.Parent.Controls[sqlDropDown.Parent.Controls.IndexOf(sqlDropDown) - 1];
+                    string excelColumn = null;
+                    if (previousControl is Label)
+                    {
+                        excelColumn = ((Label)previousControl).Text;
+                    }
 
                     // Get the selected SQL column 
                     string selectedSqlColumn = sqlDropDown.SelectedValue;
 
-                    if (selectedSqlColumn != "None") // Ensure a SQL mapping is chosen
+                    if (selectedSqlColumn != "None" && excelColumn != null) // Ensure a SQL mapping is chosen and Excel column is found
                     {
-                        System.Diagnostics.Debug.WriteLine(excelColumn);
-                        System.Diagnostics.Debug.WriteLine(selectedSqlColumn);
                         mappings.Add(excelColumn, selectedSqlColumn);
                     }
                 }
@@ -213,18 +254,6 @@ namespace exceltosql
 
             return mappings;
         }
-        private string FindCorrespondingExcelColumn(DropDownList sqlDropDown)
-        {
-            Control previousControl = sqlDropDown.Parent.Controls[sqlDropDown.Parent.Controls.IndexOf(sqlDropDown) - 1];
-            if (previousControl is Label)
-            {
-                return ((Label)previousControl).Text;
-            }
-            else
-            {
-                // Handle the case where no previous Label is found (potential error)
-                return null;
-            }
-        }
+
     }
 }
