@@ -220,7 +220,7 @@ namespace exceltosql
                 Debug.WriteLine("{" + string.Join(", ", cellValues) + "}");
             }
 
-
+            InsertData(dataToBeInserted, connectionString);
         }
 
         private Dictionary<string, string> GetColumnMappings()
@@ -253,6 +253,27 @@ namespace exceltosql
             }
 
             return mappings;
+        }
+
+        private void InsertData(List<Dictionary<string, string>> dataToBeInserted, string connectionString)
+        {
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+
+                foreach (var row in dataToBeInserted)
+                {
+                    string columns = string.Join(", ", row.Keys);
+                    string values = string.Join(", ", row.Values.Select(v => $"'{v}'"));
+
+                    string query = $"INSERT INTO cars ({columns}) VALUES ({values})";
+
+                    using (SqlCommand command = new SqlCommand(query, connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
         }
 
     }
