@@ -19,6 +19,8 @@
                      <asp:FileUpload ID="ExcelFileUpload" runat="server" accept=".xls,.xlsx,.csv" />
                      <asp:Button ID="UploadButton" runat="server" Text="Upload" OnClick="UploadButton_Click" />
                      <br />
+                     <asp:DropDownList ID="WorksheetList" runat="server" Visible="false"/>
+                     <asp:Button ID="SelectWorksheetButton" runat="server" Text="Select Worksheet" OnClick="SelectWorksheetButton_Click" Visible="false"/>
                      <br />
                  </div>
                  <div id="mappingContainer" runat="server"></div>

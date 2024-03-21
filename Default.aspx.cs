@@ -34,6 +34,7 @@ namespace exceltosql
             {
                 string filePath = Server.MapPath("~/Files/") + ExcelFileUpload.FileName;
                 ExcelFileUpload.SaveAs(filePath); // saves on the local directory of the project under "Files" folder
+                ViewState["filePath"] = filePath;
                 string FileExtension = Path.GetExtension(filePath); // gets the extension of the uploaded file
 
                 if (File.Exists(filePath))
@@ -42,46 +43,19 @@ namespace exceltosql
                     {
                         ExcelPackage.LicenseContext = LicenseContext.Commercial;
                         ExcelPackage package = new ExcelPackage(new FileInfo(filePath));
-                        ExcelWorksheet worksheet = package.Workbook.Worksheets[0]; // Assuming data is in the first sheet
 
-                        int rowCount = worksheet.Dimension.Rows;
-                        int colCount = worksheet.Dimension.Columns;
+                        WorksheetList.Items.Clear();
 
-                        List<string> excelColumns = new List<string>();
-                        for (int col = 1; col <= colCount; col++)
+                        foreach (var worksheet in package.Workbook.Worksheets)
                         {
-                            excelColumns.Add(worksheet.Cells[1, col].Value?.ToString() ?? "");
+                            WorksheetList.Items.Add(new ListItem(worksheet.Name));
                         }
 
-                        // Calls the function to get the table columns of the SQL database
-                        List<string> sqlColumns = GetSqlTableColumns();
+                        WorksheetList.Visible = true;
+                        SelectWorksheetButton.Visible = true;
 
-                        DataTable excelData = new DataTable();
-                        for (int i = 0; i < excelColumns.Count; i++)
-                        {
-                            excelData.Columns.Add(excelColumns[i]); // add columns of excel file to excelData
-                        }
-
-                        for (int row = 1; row <= rowCount; row++)
-                        {
-                            DataRow dataRow = excelData.NewRow();
-                            for (int col = 1; col <= colCount; col++)
-                            {
-                                dataRow[col - 1] = worksheet.Cells[row, col].Value?.ToString() ?? ""; // add rows of excel file to excelData
-                            }
-                            excelData.Rows.Add(dataRow);
-                        }
-
-                        ViewState["excelColumns"] = excelColumns; // excel column names only
-                        ViewState["sqlColumns"] = sqlColumns; // sql column names only
-                        ViewState["excelData"] = excelData; // content of excel cells (with column names)
-
-                        // Call the function to regenerate the form with dynamic elements
-                        GenerateMappingForm();
-
-                        package.Dispose(); // Dispose the package after use
-
-                        SubmitButton.Visible = true;
+                        ExcelFileUpload.Visible = false;
+                        UploadButton.Visible = false;
                     }
                     else
                     {
@@ -94,6 +68,63 @@ namespace exceltosql
                 Response.Write("No file is selected");
             }
         }
+
+        protected void SelectWorksheetButton_Click(object sender, EventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("A");
+            string filePath = ViewState["filePath"].ToString();
+
+            if (File.Exists(filePath))
+            {
+                System.Diagnostics.Debug.WriteLine("B");
+                ExcelPackage.LicenseContext = LicenseContext.Commercial;
+                ExcelPackage package = new ExcelPackage(new FileInfo(filePath));
+                ExcelWorksheet worksheet = package.Workbook.Worksheets[WorksheetList.SelectedItem.Text];
+
+                int rowCount = worksheet.Dimension.Rows;
+                int colCount = worksheet.Dimension.Columns;
+
+                List<string> excelColumns = new List<string>();
+                for (int col = 1; col <= colCount; col++)
+                {
+                    excelColumns.Add(worksheet.Cells[1, col].Value?.ToString() ?? "");
+                }
+
+                // Calls the function to get the table columns of the SQL database
+                List<string> sqlColumns = GetSqlTableColumns();
+
+                DataTable excelData = new DataTable();
+                for (int i = 0; i < excelColumns.Count; i++)
+                {
+                    excelData.Columns.Add(excelColumns[i]); // add columns of excel file to excelData
+                }
+
+                for (int row = 1; row <= rowCount; row++)
+                {
+                    DataRow dataRow = excelData.NewRow();
+                    for (int col = 1; col <= colCount; col++)
+                    {
+                        dataRow[col - 1] = worksheet.Cells[row, col].Value?.ToString() ?? ""; // add rows of excel file to excelData
+                    }
+                    excelData.Rows.Add(dataRow);
+                }
+
+                ViewState["excelColumns"] = excelColumns; // excel column names only
+                ViewState["sqlColumns"] = sqlColumns; // sql column names only
+                ViewState["excelData"] = excelData; // content of excel cells (with column names)
+
+                // Call the function to regenerate the form with dynamic elements
+                GenerateMappingForm();
+
+                package.Dispose(); // Dispose the package after use
+
+                SubmitButton.Visible = true;
+
+                WorksheetList.Visible = false;
+                SelectWorksheetButton.Visible = false;
+            }
+        }
+
 
         private List<string> GetSqlTableColumns()
         {
@@ -219,7 +250,7 @@ namespace exceltosql
                 }
                 Debug.WriteLine("{" + string.Join(", ", cellValues) + "}");
             }
-
+            System.Diagnostics.Debug.WriteLine("C");
             InsertData(dataToBeInserted, connectionString);
         }
 
