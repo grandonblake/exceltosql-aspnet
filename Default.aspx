@@ -16,12 +16,18 @@
         <asp:UpdatePanel ID="UpdatePanel1" runat="server">
              <ContentTemplate>
                  <div>
-                     <asp:FileUpload ID="ExcelFileUpload" runat="server" accept=".xls,.xlsx,.csv" />
-                     <asp:Button ID="UploadButton" runat="server" Text="Upload" OnClick="UploadButton_Click" />
-                     <br />
-                     <asp:DropDownList ID="WorksheetList" runat="server" Visible="false"/>
-                     <asp:Button ID="SelectWorksheetButton" runat="server" Text="Select Worksheet" OnClick="SelectWorksheetButton_Click" Visible="false"/>
-                     <br />
+                    <asp:FileUpload ID="ExcelFileUpload" runat="server" accept=".xls,.xlsx,.csv" />
+                    <asp:Button ID="UploadButton" runat="server" Text="Upload" OnClick="UploadButton_Click" />
+                    <br />
+                    <br />
+                    <asp:DropDownList ID="WorksheetList" runat="server" Visible="false"/>
+                    <asp:Button ID="SelectWorksheetButton" runat="server" Text="Select Excel Worksheet" OnClick="SelectWorksheetButton_Click" Visible="false"/>
+                    <br />
+                    <br />
+                    <asp:DropDownList ID="TableList" runat="server" Visible="false"/>
+                    <asp:Button ID="SelectTableButton" runat="server" Text="Select SQL Table" OnClick="SelectTableButton_Click" Visible="false"/>
+                    <br />
+                    <br />
                  </div>
                  <div id="mappingContainer" runat="server"></div>
               </ContentTemplate>

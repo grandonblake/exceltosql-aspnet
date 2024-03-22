@@ -15,37 +15,42 @@ namespace exceltosql
     public partial class Default : System.Web.UI.Page
     {
         string connectionString = @"Server=IOT-LT98\SQLEXPRESS;Database=test;Trusted_Connection=True;";
+
         protected void Page_Load(object sender, EventArgs e)
         {
+            // Set up asynchronous trigger for upload button
             AsyncPostBackTrigger trigger = new AsyncPostBackTrigger();
             trigger.ControlID = UploadButton.UniqueID;
             trigger.EventName = "Click";
             UpdatePanel1.Triggers.Add(trigger);
 
-            // Generate form if Excel data is available (after an upload)
-            if (ViewState["excelColumns"] != null)
+            // Generate mapping form if both Excel and SQL columns are available
+            if (ViewState["excelColumns"] != null && ViewState["sqlColumns"] != null)
             {
                 GenerateMappingForm();
             }
         }
+
+        // Uploads the Excel file
         protected void UploadButton_Click(object sender, EventArgs e)
         {
-            if (ExcelFileUpload.HasFile)
+            if (ExcelFileUpload.HasFile) // If the FileUpload has a file
             {
                 string filePath = Server.MapPath("~/Files/") + ExcelFileUpload.FileName;
-                ExcelFileUpload.SaveAs(filePath); // saves on the local directory of the project under "Files" folder
+                ExcelFileUpload.SaveAs(filePath); // Save uploaded file in local directory
                 ViewState["filePath"] = filePath;
-                string FileExtension = Path.GetExtension(filePath); // gets the extension of the uploaded file
+                string FileExtension = Path.GetExtension(filePath); // Get file extension
 
-                if (File.Exists(filePath))
+                if (File.Exists(filePath)) // If the file exists in the file path
                 {
-                    if (FileExtension == ".xls" || FileExtension == ".xlsx" || FileExtension == ".csv") // only accepts .xls, .xlsx, and .csv files
+                    if (FileExtension == ".xls" || FileExtension == ".xlsx" || FileExtension == ".csv") // Check file extension
                     {
                         ExcelPackage.LicenseContext = LicenseContext.Commercial;
                         ExcelPackage package = new ExcelPackage(new FileInfo(filePath));
 
                         WorksheetList.Items.Clear();
 
+                        // Add worksheets to dropdown list
                         foreach (var worksheet in package.Workbook.Worksheets)
                         {
                             WorksheetList.Items.Add(new ListItem(worksheet.Name));
@@ -54,8 +59,7 @@ namespace exceltosql
                         WorksheetList.Visible = true;
                         SelectWorksheetButton.Visible = true;
 
-                        ExcelFileUpload.Visible = false;
-                        UploadButton.Visible = false;
+                        package.Dispose(); // Dispose Excel package
                     }
                     else
                     {
@@ -69,147 +73,163 @@ namespace exceltosql
             }
         }
 
+        // Selects the worksheet in the uploaded Excel file
         protected void SelectWorksheetButton_Click(object sender, EventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("A");
-            string filePath = ViewState["filePath"].ToString();
+            string filePath = ViewState["filePath"].ToString(); // gets the saved file path
 
             if (File.Exists(filePath))
             {
-                System.Diagnostics.Debug.WriteLine("B");
                 ExcelPackage.LicenseContext = LicenseContext.Commercial;
                 ExcelPackage package = new ExcelPackage(new FileInfo(filePath));
-                ExcelWorksheet worksheet = package.Workbook.Worksheets[WorksheetList.SelectedItem.Text];
+                ExcelWorksheet worksheet = package.Workbook.Worksheets[WorksheetList.SelectedItem.Text]; // selects the chosen worksheet
 
                 int rowCount = worksheet.Dimension.Rows;
                 int colCount = worksheet.Dimension.Columns;
 
-                List<string> excelColumns = new List<string>();
+                List<string> excelColumns = new List<string>(); // variable to store the uploaded excel's column names
                 for (int col = 1; col <= colCount; col++)
                 {
-                    excelColumns.Add(worksheet.Cells[1, col].Value?.ToString() ?? "");
+                    excelColumns.Add(worksheet.Cells[1, col].Value?.ToString() ?? ""); // Extract excel column names
                 }
 
-                // Calls the function to get the table columns of the SQL database
-                List<string> sqlColumns = GetSqlTableColumns();
-
-                DataTable excelData = new DataTable();
+                DataTable excelData = new DataTable(); // variable to store the contents of the uploaded excel (column + row)
                 for (int i = 0; i < excelColumns.Count; i++)
                 {
-                    excelData.Columns.Add(excelColumns[i]); // add columns of excel file to excelData
+                    excelData.Columns.Add(excelColumns[i]); // Add columns to data table
                 }
 
                 for (int row = 1; row <= rowCount; row++)
                 {
-                    DataRow dataRow = excelData.NewRow();
+                    DataRow dataRow = excelData.NewRow(); // variable to store the rows of the uploaded excel
                     for (int col = 1; col <= colCount; col++)
                     {
-                        dataRow[col - 1] = worksheet.Cells[row, col].Value?.ToString() ?? ""; // add rows of excel file to excelData
+                        // Add data (rows) to data table (excelData)
+                        dataRow[col - 1] = worksheet.Cells[row, col].Value?.ToString() ?? "";
                     }
                     excelData.Rows.Add(dataRow);
                 }
 
-                ViewState["excelColumns"] = excelColumns; // excel column names only
-                ViewState["sqlColumns"] = sqlColumns; // sql column names only
-                ViewState["excelData"] = excelData; // content of excel cells (with column names)
+                TableList.Items.Clear();
+                List<string> tableNames = GetSqlTableNames(); // Get SQL table names
+                foreach (string tableName in tableNames)
+                {
+                    TableList.Items.Add(new ListItem(tableName)); // adds SQL table name to dropdown list
+                }
 
-                // Call the function to regenerate the form with dynamic elements
-                GenerateMappingForm();
+                ViewState["excelColumns"] = excelColumns; // Store excel column names
+                ViewState["excelData"] = excelData; // Store excel data
 
-                package.Dispose(); // Dispose the package after use
+                package.Dispose(); // Dispose Excel package
 
-                SubmitButton.Visible = true;
-
-                WorksheetList.Visible = false;
-                SelectWorksheetButton.Visible = false;
+                TableList.Visible = true;
+                SelectTableButton.Visible = true;
             }
         }
 
-
-        private List<string> GetSqlTableColumns()
-        {
-            List<string> columnNames = new List<string>();
-            using (SqlConnection connection = new SqlConnection(connectionString))
+            // Retrieves a list of SQL Server table names
+            private List<string> GetSqlTableNames()
             {
-                string tableName = "cars"; // the table name
-                string query = $"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{tableName}'";
-
-                SqlCommand command = new SqlCommand(query, connection);
-                connection.Open();
-
-                using (SqlDataReader reader = command.ExecuteReader())
+                List<string> tableNames = new List<string>();
+                using (SqlConnection connection = new SqlConnection(connectionString))
                 {
-                    while (reader.Read())
+                    string query = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
+
+                    SqlCommand command = new SqlCommand(query, connection);
+                    connection.Open();
+
+                    using (SqlDataReader reader = command.ExecuteReader())
                     {
-                        columnNames.Add(reader.GetString(0));
+                        while (reader.Read())
+                        {
+                            tableNames.Add(reader.GetString(0));
+                        }
                     }
                 }
+                return tableNames;
             }
-            return columnNames;
-        }
 
-        private void GenerateMappingForm()
-        {
-            mappingContainer.Controls.Clear();
-
-            // Fetch the data you stored in ViewState
-            List<string> excelColumns = (List<string>)ViewState["excelColumns"]; // excel column names only
-            List<string> sqlColumns = (List<string>)ViewState["sqlColumns"]; // sql column names only
-
-            // Create DropDownLists dynamically
-            for (int i = 0; i < excelColumns.Count; i++)
+        // Selects the table in the SQL database
+        protected void SelectTableButton_Click(object sender, EventArgs e)
             {
-                Label excelLabel = new Label();
-                excelLabel.Text = excelColumns[i]; // the label for the excel column name
+                string selectedTable = TableList.SelectedItem.Text;
+                List<string> sqlColumns = GetSqlTableColumns(selectedTable); // Get SQL table columns
 
-                DropDownList sqlDropDown = new DropDownList(); // the dropdown list for the sql column name
-                sqlDropDown.EnableViewState = true;
-                sqlDropDown.ID = "sqlColumnMapping_" + i;
+                ViewState["selectedTable"] = selectedTable;
+                ViewState["sqlColumns"] = sqlColumns;
 
-                sqlDropDown.Items.Add("None"); //the "None" option
-                // Populate SQL Columns
-                foreach (string sqlCol in sqlColumns)
-                {
-                    sqlDropDown.Items.Add(sqlCol);
-                }
+                GenerateMappingForm(); // Generate mapping form
 
-                mappingContainer.Controls.Add(excelLabel);
-                mappingContainer.Controls.Add(sqlDropDown);
-                mappingContainer.Controls.Add(new LiteralControl("<br />"));
+                SubmitButton.Visible = true;
             }
-        }
+
+            // Retrieves a list of column names for a specific SQL Server table
+            private List<string> GetSqlTableColumns(string tableName)
+            {
+                List<string> columnNames = new List<string>();
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    string query = $"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{tableName}'";
+
+                    SqlCommand command = new SqlCommand(query, connection);
+                    connection.Open();
+
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            columnNames.Add(reader.GetString(0));
+                        }
+                    }
+                }
+                return columnNames;
+            }
+
+            // Dynamically creates a form for mapping Excel columns to SQL Server columns
+            private void GenerateMappingForm()
+            {
+                mappingContainer.Controls.Clear();
+
+                List<string> excelColumns = (List<string>)ViewState["excelColumns"];
+                List<string> sqlColumns = (List<string>)ViewState["sqlColumns"];
+
+                // Create DropDownLists for mapping
+                for (int i = 0; i < excelColumns.Count; i++)
+                {
+                    Label excelLabel = new Label();
+                    excelLabel.Text = excelColumns[i]; // Label for Excel column
+
+                    DropDownList sqlDropDown = new DropDownList(); // Dropdown for SQL column mapping
+                    sqlDropDown.EnableViewState = true;
+                    sqlDropDown.ID = "sqlColumnMapping_" + i;
+
+                    sqlDropDown.Items.Add("None"); // Add "None" option
+                    foreach (string sqlCol in sqlColumns)
+                    {
+                        sqlDropDown.Items.Add(sqlCol); // Add SQL columns to dropdown
+                    }
+
+                    mappingContainer.Controls.Add(excelLabel);
+                    mappingContainer.Controls.Add(sqlDropDown);
+                    mappingContainer.Controls.Add(new LiteralControl("<br />"));
+                }
+            }
 
         protected void SubmitButton_Click(object sender, EventArgs e)
         {
-            // Mappings
+            // Get column mappings from form
             Dictionary<string, string> mappings = GetColumnMappings();
 
-            System.Diagnostics.Debug.WriteLine("mappings");
-            foreach (KeyValuePair<string, string> kvp in mappings)
-            {
-                System.Diagnostics.Debug.WriteLine($"Key = {kvp.Key}, Value = {kvp.Value}");
-            }
+            DataTable excelData = (DataTable)ViewState["excelData"]; // Get excel data
 
-            DataTable excelData = (DataTable)ViewState["excelData"]; // gets content of cells of excel file
-
-            System.Diagnostics.Debug.WriteLine("excelData");
-            foreach (DataRow row in excelData.Rows)
-            {
-                List<string> cellValues = new List<string>();
-                foreach (DataColumn column in excelData.Columns)
-                {
-                    cellValues.Add(row[column].ToString());
-                }
-                Debug.WriteLine(string.Join(", ", cellValues));
-            }
-
+            // Create dictionary for mapped data
             Dictionary<string, List<string>> mappedData = new Dictionary<string, List<string>>();
-
             foreach (KeyValuePair<string, string> mapping in mappings)
             {
                 mappedData[mapping.Value] = new List<string>();
             }
 
+            // Map excel data to SQL columns
             for (int i = 1; i < excelData.Rows.Count; i++)
             {
                 DataRow row = excelData.Rows[i];
@@ -222,14 +242,8 @@ namespace exceltosql
                 }
             }
 
-            System.Diagnostics.Debug.WriteLine("mappedData");
-            foreach (KeyValuePair<string, List<string>> kvp in mappedData)
-            {
-                System.Diagnostics.Debug.WriteLine($"{kvp.Key}: {string.Join(", ", kvp.Value)}");
-            }
-
+            // Prepare data for insertion
             List<Dictionary<string, string>> dataToBeInserted = new List<Dictionary<string, string>>();
-
             for (int i = 0; i < mappedData.First().Value.Count; i++)
             {
                 Dictionary<string, string> row = new Dictionary<string, string>();
@@ -240,72 +254,64 @@ namespace exceltosql
                 dataToBeInserted.Add(row);
             }
 
-            System.Diagnostics.Debug.WriteLine("dataToBeInserted");
-            foreach (Dictionary<string, string> row in dataToBeInserted)
-            {
-                List<string> cellValues = new List<string>();
-                foreach (KeyValuePair<string, string> kvp in row)
-                {
-                    cellValues.Add($"{kvp.Key}: {kvp.Value}");
-                }
-                Debug.WriteLine("{" + string.Join(", ", cellValues) + "}");
-            }
-            System.Diagnostics.Debug.WriteLine("C");
-            InsertData(dataToBeInserted, connectionString);
+            InsertData(dataToBeInserted, connectionString); // Insert data into SQL Server
         }
 
-        private Dictionary<string, string> GetColumnMappings()
-        {
-            Dictionary<string, string> mappings = new Dictionary<string, string>();
-
-            // Iterate through your mapping container's controls
-            foreach (Control control in mappingContainer.Controls)
+            // Extracts user-defined column mappings from the form
+            private Dictionary<string, string> GetColumnMappings()
             {
-                if (control is DropDownList)
+                Dictionary<string, string> mappings = new Dictionary<string, string>();
+
+                foreach (Control control in mappingContainer.Controls)
                 {
-                    DropDownList sqlDropDown = (DropDownList)control;
-
-                    // Get the corresponding Excel column
-                    Control previousControl = sqlDropDown.Parent.Controls[sqlDropDown.Parent.Controls.IndexOf(sqlDropDown) - 1];
-                    string excelColumn = null;
-                    if (previousControl is Label)
+                    if (control is DropDownList)
                     {
-                        excelColumn = ((Label)previousControl).Text;
-                    }
+                        DropDownList sqlDropDown = (DropDownList)control;
 
-                    // Get the selected SQL column 
-                    string selectedSqlColumn = sqlDropDown.SelectedValue;
+                        // Get corresponding Excel column name
+                        Control previousControl = sqlDropDown.Parent.Controls[sqlDropDown.Parent.Controls.IndexOf(sqlDropDown) - 1];
+                        string excelColumn = null;
+                        if (previousControl is Label)
+                        {
+                            excelColumn = ((Label)previousControl).Text;
+                        }
 
-                    if (selectedSqlColumn != "None" && excelColumn != null) // Ensure a SQL mapping is chosen and Excel column is found
-                    {
-                        mappings.Add(excelColumn, selectedSqlColumn);
+                        // Get selected SQL column
+                        string selectedSqlColumn = sqlDropDown.SelectedValue;
+
+                        if (selectedSqlColumn != "None" && excelColumn != null) // Check for valid mapping
+                        {
+                            mappings.Add(excelColumn, selectedSqlColumn);
+                        }
                     }
                 }
+
+                return mappings;
             }
 
-            return mappings;
-        }
-
-        private void InsertData(List<Dictionary<string, string>> dataToBeInserted, string connectionString)
-        {
-            using (SqlConnection connection = new SqlConnection(connectionString))
+            // Inserts data into the specified SQL Server table
+            private void InsertData(List<Dictionary<string, string>> dataToBeInserted, string connectionString)
             {
-                connection.Open();
+                string selectedTable = ViewState["selectedTable"].ToString();
 
-                foreach (var row in dataToBeInserted)
+                using (SqlConnection connection = new SqlConnection(connectionString))
                 {
-                    string columns = string.Join(", ", row.Keys);
-                    string values = string.Join(", ", row.Values.Select(v => $"'{v}'"));
+                    connection.Open();
 
-                    string query = $"INSERT INTO cars ({columns}) VALUES ({values})";
-
-                    using (SqlCommand command = new SqlCommand(query, connection))
+                    foreach (var row in dataToBeInserted)
                     {
-                        command.ExecuteNonQuery();
+                        // Build SQL query for insertion
+                        string columns = string.Join(", ", row.Keys);
+                        string values = string.Join(", ", row.Values.Select(v => $"'{v}'"));
+
+                        string query = $"INSERT INTO {selectedTable} ({columns}) VALUES ({values})";
+
+                        using (SqlCommand command = new SqlCommand(query, connection))
+                        {
+                            command.ExecuteNonQuery(); // Execute insert query
+                        }
                     }
                 }
             }
-        }
-
     }
 }

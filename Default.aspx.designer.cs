@@ -78,6 +78,24 @@ namespace exceltosql
         protected global::System.Web.UI.WebControls.Button SelectWorksheetButton;
 
         /// <summary>
+        /// TableList control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.DropDownList TableList;
+
+        /// <summary>
+        /// SelectTableButton control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.Button SelectTableButton;
+
+        /// <summary>
         /// mappingContainer control.
         /// </summary>
         /// <remarks>
