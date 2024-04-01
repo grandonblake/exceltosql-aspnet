@@ -24,6 +24,18 @@
                     <asp:Button ID="SelectWorksheetButton" runat="server" Text="Select Excel Worksheet" OnClick="SelectWorksheetButton_Click" Visible="false"/>
                     <br />
                     <br />
+                    <label for="SqlServerName" runat="server" id="SqlServerNameLabel" visible="false">Input SQL Server Name: </label>
+                    <asp:TextBox ID="SqlServerName" runat="server" Visible="false"></asp:TextBox>
+                    <asp:Button ID="SelectSQLServer" runat="server" Text="Select SQL Server" OnClick="SelectSQLServerButton_Click" Visible="false"/>
+                    <br />
+                    <br />
+                    <label for="DatabaseName" runat="server" id="DatabaseNameLabel" visible="false">Input Database Name: </label>
+                    <asp:TextBox ID="DatabaseName" runat="server" Visible="false"></asp:TextBox>
+                    <asp:Button ID="SelectDatabase" runat="server" Text="Select Database" OnClick="SelectDatabaseButton_Click" Visible="false"/>
+                    <br />
+                    <asp:Label ID="SQLConnectionErrorLabel" runat="server" Visible="false" ForeColor="Red"></asp:Label>
+                    <br />
+                    <br />
                     <asp:DropDownList ID="TableList" runat="server" Visible="false"/>
                     <asp:Button ID="SelectTableButton" runat="server" Text="Select SQL Table" OnClick="SelectTableButton_Click" Visible="false"/>
                     <br />
@@ -33,7 +45,9 @@
               </ContentTemplate>
         </asp:UpdatePanel>
         <br />
-        <asp:Button ID="SubmitButton" runat="server" Text="Submit" OnClick="SubmitButton_Click" Visible="false" />
+        <asp:Button ID="ExecuteButton" runat="server" Text="Execute" OnClick="ExecuteButton_Click" Visible="false" />
+        <br />
+        <asp:Label ID="ExecuteErrorLabel" runat="server" Visible="false" ForeColor="Red"></asp:Label>
 
     </form>
 </body>

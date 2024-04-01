@@ -14,8 +14,8 @@ namespace exceltosql
 {
     public partial class Default : System.Web.UI.Page
     {
-        string connectionString = @"Server=IOT-LT98\SQLEXPRESS;Database=test;Trusted_Connection=True;";
 
+        // string connectionString = @"Server=IOT-LT98\SQLEXPRESS;Database=test;Trusted_Connection=True;";
         protected void Page_Load(object sender, EventArgs e)
         {
             // Set up asynchronous trigger for upload button
@@ -110,26 +110,81 @@ namespace exceltosql
                     excelData.Rows.Add(dataRow);
                 }
 
-                TableList.Items.Clear();
-                List<string> tableNames = GetSqlTableNames(); // Get SQL table names
-                foreach (string tableName in tableNames)
+                // Inside your SelectWorksheetButton_Click method, after the excelData is populated:
+
+                foreach (DataRow row in excelData.Rows)
                 {
-                    TableList.Items.Add(new ListItem(tableName)); // adds SQL table name to dropdown list
+                    System.Diagnostics.Debug.WriteLine("----- Row -----");
+                    foreach (var item in row.ItemArray)
+                    {
+                        System.Diagnostics.Debug.WriteLine(item);
+                    }
                 }
+
 
                 ViewState["excelColumns"] = excelColumns; // Store excel column names
                 ViewState["excelData"] = excelData; // Store excel data
 
                 package.Dispose(); // Dispose Excel package
 
-                TableList.Visible = true;
-                SelectTableButton.Visible = true;
+                SqlServerNameLabel.Visible = true;
+                SqlServerName.Visible = true;
+                SelectSQLServer.Visible = true;
             }
         }
 
-            // Retrieves a list of SQL Server table names
-            private List<string> GetSqlTableNames()
+        protected void SelectSQLServerButton_Click(object sender, EventArgs e)
+        {
+            string sqlServerName = SqlServerName.Text.Trim();
+            ViewState["sqlServerName"] = sqlServerName;
+
+            DatabaseNameLabel.Visible = true;
+            DatabaseName.Visible = true;
+            SelectDatabase.Visible = true;
+        }
+
+        protected void SelectDatabaseButton_Click(object sender, EventArgs e)
+        {
+            string sqlServerName = ViewState["sqlServerName"].ToString();
+            string databaseName = DatabaseName.Text.Trim();
+
+            string connectionString = $"Server={sqlServerName};Database={databaseName};Trusted_Connection=True;";
+
+            try
             {
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    // If the connection is successful, store the connection string in ViewState
+                    ViewState["connectionString"] = connectionString;
+
+                    // Hide the error label if the connection is successful
+                    SQLConnectionErrorLabel.Text = string.Empty;
+                    SQLConnectionErrorLabel.Visible = false;
+
+                    TableList.Items.Clear();
+                    List<string> tableNames = GetSqlTableNames();
+                    foreach (string tableName in tableNames)
+                    {
+                        TableList.Items.Add(new ListItem(tableName));
+                    }
+
+                    TableList.Visible = true;
+                    SelectTableButton.Visible = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                SQLConnectionErrorLabel.Text = "Error: " + ex.Message;
+                SQLConnectionErrorLabel.Visible = true;
+            }
+        }
+
+        // Retrieves a list of SQL Server table names
+        private List<string> GetSqlTableNames()
+            {
+                string connectionString = ViewState["connectionString"].ToString();
+
                 List<string> tableNames = new List<string>();
                 using (SqlConnection connection = new SqlConnection(connectionString))
                 {
@@ -151,21 +206,23 @@ namespace exceltosql
 
         // Selects the table in the SQL database
         protected void SelectTableButton_Click(object sender, EventArgs e)
-            {
-                string selectedTable = TableList.SelectedItem.Text;
-                List<string> sqlColumns = GetSqlTableColumns(selectedTable); // Get SQL table columns
+        {
+            string selectedTable = TableList.SelectedItem.Text;
+            List<string> sqlColumns = GetSqlTableColumns(selectedTable); // Get SQL table columns
 
-                ViewState["selectedTable"] = selectedTable;
-                ViewState["sqlColumns"] = sqlColumns;
+            ViewState["selectedTable"] = selectedTable;
+            ViewState["sqlColumns"] = sqlColumns;
 
-                GenerateMappingForm(); // Generate mapping form
+            GenerateMappingForm(); // Generate mapping form
 
-                SubmitButton.Visible = true;
-            }
+            ExecuteButton.Visible = true;
+        }
 
             // Retrieves a list of column names for a specific SQL Server table
             private List<string> GetSqlTableColumns(string tableName)
             {
+                string connectionString = ViewState["connectionString"].ToString();
+
                 List<string> columnNames = new List<string>();
                 using (SqlConnection connection = new SqlConnection(connectionString))
                 {
@@ -215,7 +272,7 @@ namespace exceltosql
                 }
             }
 
-        protected void SubmitButton_Click(object sender, EventArgs e)
+        protected void ExecuteButton_Click(object sender, EventArgs e)
         {
             // Get column mappings from form
             Dictionary<string, string> mappings = GetColumnMappings();
@@ -242,6 +299,20 @@ namespace exceltosql
                 }
             }
 
+            // Print the first element of mappedData
+            KeyValuePair<string, List<string>> firstEntry = mappedData.First();
+
+            System.Diagnostics.Debug.WriteLine("----- Mapped Data: First Entry -----");
+            System.Diagnostics.Debug.WriteLine($"Key: {firstEntry.Key}");
+
+            // Print all values in the list:
+            System.Diagnostics.Debug.WriteLine("Values:");
+            foreach (string value in firstEntry.Value)
+            {
+                System.Diagnostics.Debug.WriteLine(value);
+            }
+
+
             // Prepare data for insertion
             List<Dictionary<string, string>> dataToBeInserted = new List<Dictionary<string, string>>();
             for (int i = 0; i < mappedData.First().Value.Count; i++)
@@ -254,7 +325,9 @@ namespace exceltosql
                 dataToBeInserted.Add(row);
             }
 
-            InsertData(dataToBeInserted, connectionString); // Insert data into SQL Server
+            
+
+            InsertData(dataToBeInserted); // Insert data into SQL Server
         }
 
             // Extracts user-defined column mappings from the form
@@ -289,27 +362,41 @@ namespace exceltosql
                 return mappings;
             }
 
-            // Inserts data into the specified SQL Server table
-            private void InsertData(List<Dictionary<string, string>> dataToBeInserted, string connectionString)
+        // Inserts data into the specified SQL Server table
+            private void InsertData(List<Dictionary<string, string>> dataToBeInserted)
             {
                 string selectedTable = ViewState["selectedTable"].ToString();
+                string connectionString = ViewState["connectionString"].ToString();
 
                 using (SqlConnection connection = new SqlConnection(connectionString))
                 {
                     connection.Open();
 
-                    foreach (var row in dataToBeInserted)
+                    try
                     {
-                        // Build SQL query for insertion
-                        string columns = string.Join(", ", row.Keys);
-                        string values = string.Join(", ", row.Values.Select(v => $"'{v}'"));
-
-                        string query = $"INSERT INTO {selectedTable} ({columns}) VALUES ({values})";
-
-                        using (SqlCommand command = new SqlCommand(query, connection))
+                        foreach (var row in dataToBeInserted)
                         {
-                            command.ExecuteNonQuery(); // Execute insert query
+                            // Build SQL query for insertion
+                            string columns = string.Join(", ", row.Keys);
+                            string values = string.Join(", ", row.Values.Select(v => $"'{v}'"));
+
+                            string query = $"INSERT INTO {selectedTable} ({columns}) VALUES ({values})";
+
+                            using (SqlCommand command = new SqlCommand(query, connection))
+                            {
+                                command.ExecuteNonQuery(); // Execute insert query
+                            }
                         }
+
+                        // Clear the error label if the insertion is successful
+                        ExecuteErrorLabel.Text = string.Empty;
+                        ExecuteErrorLabel.Visible = false;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Display the error message in the ErrorLabel
+                        ExecuteErrorLabel.Text = "Error: " + ex.Message;
+                        ExecuteErrorLabel.Visible = true;
                     }
                 }
             }
