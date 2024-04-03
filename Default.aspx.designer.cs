@@ -51,15 +51,6 @@ namespace exceltosql
         protected global::System.Web.UI.WebControls.FileUpload ExcelFileUpload;
 
         /// <summary>
-        /// UploadButton control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.WebControls.Button UploadButton;
-
-        /// <summary>
         /// WorksheetList control.
         /// </summary>
         /// <remarks>
@@ -67,15 +58,6 @@ namespace exceltosql
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.DropDownList WorksheetList;
-
-        /// <summary>
-        /// SelectWorksheetButton control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.WebControls.Button SelectWorksheetButton;
 
         /// <summary>
         /// SqlServerNameLabel control.
@@ -96,13 +78,31 @@ namespace exceltosql
         protected global::System.Web.UI.WebControls.TextBox SqlServerName;
 
         /// <summary>
-        /// SelectSQLServer control.
+        /// TableList control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.Button SelectSQLServer;
+        protected global::System.Web.UI.WebControls.DropDownList TableList;
+
+        /// <summary>
+        /// mappingContainer control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl mappingContainer;
+
+        /// <summary>
+        /// SuccessLabel control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.Label SuccessLabel;
 
         /// <summary>
         /// DatabaseNameLabel control.
@@ -123,31 +123,31 @@ namespace exceltosql
         protected global::System.Web.UI.WebControls.TextBox DatabaseName;
 
         /// <summary>
-        /// SelectDatabase control.
+        /// UploadButton control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.Button SelectDatabase;
+        protected global::System.Web.UI.WebControls.Button UploadButton;
 
         /// <summary>
-        /// SQLConnectionErrorLabel control.
+        /// SelectWorksheetButton control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.Label SQLConnectionErrorLabel;
+        protected global::System.Web.UI.WebControls.Button SelectWorksheetButton;
 
         /// <summary>
-        /// TableList control.
+        /// ConnectDatabase control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.DropDownList TableList;
+        protected global::System.Web.UI.WebControls.Button ConnectDatabase;
 
         /// <summary>
         /// SelectTableButton control.
@@ -159,30 +159,30 @@ namespace exceltosql
         protected global::System.Web.UI.WebControls.Button SelectTableButton;
 
         /// <summary>
-        /// mappingContainer control.
+        /// InsertDataButton control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.HtmlControls.HtmlGenericControl mappingContainer;
+        protected global::System.Web.UI.WebControls.Button InsertDataButton;
 
         /// <summary>
-        /// ExecuteButton control.
+        /// InsertAgainButton control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.Button ExecuteButton;
+        protected global::System.Web.UI.WebControls.Button InsertAgainButton;
 
         /// <summary>
-        /// ExecuteErrorLabel control.
+        /// ErrorLabel control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.Label ExecuteErrorLabel;
+        protected global::System.Web.UI.WebControls.Label ErrorLabel;
     }
 }

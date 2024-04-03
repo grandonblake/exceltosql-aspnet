@@ -8,6 +8,7 @@ using System.Linq;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using System.Windows.Media;
 using OfficeOpenXml;
 
 namespace exceltosql
@@ -56,20 +57,31 @@ namespace exceltosql
                             WorksheetList.Items.Add(new ListItem(worksheet.Name));
                         }
 
+                        // shows the select worksheet step
                         WorksheetList.Visible = true;
                         SelectWorksheetButton.Visible = true;
+
+                        // hides the excel upload step
+                        ExcelFileUpload.Visible = false;
+                        UploadButton.Visible = false;
+
+                        // hides the error label if successful
+                        ErrorLabel.Text = string.Empty;
+                        ErrorLabel.Visible = false;
 
                         package.Dispose(); // Dispose Excel package
                     }
                     else
                     {
-                        Response.Write("Wrong file extension");
+                        ErrorLabel.Text = "Error: Wrong file extension";
+                        ErrorLabel.Visible = true;
                     }
                 }
             }
             else
             {
-                Response.Write("No file is selected");
+                ErrorLabel.Text = "Error: No file is selected";
+                ErrorLabel.Visible = true;
             }
         }
 
@@ -121,7 +133,6 @@ namespace exceltosql
                     }
                 }
 
-
                 ViewState["excelColumns"] = excelColumns; // Store excel column names
                 ViewState["excelData"] = excelData; // Store excel data
 
@@ -129,55 +140,73 @@ namespace exceltosql
 
                 SqlServerNameLabel.Visible = true;
                 SqlServerName.Visible = true;
-                SelectSQLServer.Visible = true;
+
+                DatabaseNameLabel.Visible = true;
+                DatabaseName.Visible = true;
+                ConnectDatabase.Visible = true;
+
+
+                WorksheetList.Visible = false;
+                SelectWorksheetButton.Visible = false;
             }
         }
 
-        protected void SelectSQLServerButton_Click(object sender, EventArgs e)
+        protected void ConnectDatabaseButton_Click(object sender, EventArgs e)
         {
-            string sqlServerName = SqlServerName.Text.Trim();
-            ViewState["sqlServerName"] = sqlServerName;
-
-            DatabaseNameLabel.Visible = true;
-            DatabaseName.Visible = true;
-            SelectDatabase.Visible = true;
-        }
-
-        protected void SelectDatabaseButton_Click(object sender, EventArgs e)
-        {
-            string sqlServerName = ViewState["sqlServerName"].ToString();
-            string databaseName = DatabaseName.Text.Trim();
-
-            string connectionString = $"Server={sqlServerName};Database={databaseName};Trusted_Connection=True;";
-
-            try
+            if (string.IsNullOrEmpty(SqlServerName.Text) || string.IsNullOrEmpty(DatabaseName.Text))
             {
-                using (SqlConnection connection = new SqlConnection(connectionString))
+                // Show an error message
+                ErrorLabel.Text = "Please fill in both the SQL Server Name and Database Name.";
+                ErrorLabel.Visible = true;
+            }
+            else
+            {
+                string sqlServerName = SqlServerName.Text.Trim();
+                string databaseName = DatabaseName.Text.Trim();
+
+                string connectionString = $"Server={sqlServerName};Database={databaseName};Trusted_Connection=True;";
+
+                ErrorLabel.Text = string.Empty;
+                ErrorLabel.Visible = false;
+
+                try
                 {
-                    connection.Open();
-                    // If the connection is successful, store the connection string in ViewState
-                    ViewState["connectionString"] = connectionString;
-
-                    // Hide the error label if the connection is successful
-                    SQLConnectionErrorLabel.Text = string.Empty;
-                    SQLConnectionErrorLabel.Visible = false;
-
-                    TableList.Items.Clear();
-                    List<string> tableNames = GetSqlTableNames();
-                    foreach (string tableName in tableNames)
+                    using (SqlConnection connection = new SqlConnection(connectionString))
                     {
-                        TableList.Items.Add(new ListItem(tableName));
-                    }
+                        connection.Open();
+                        // If the connection is successful, store the connection string in ViewState
+                        ViewState["connectionString"] = connectionString;
 
-                    TableList.Visible = true;
-                    SelectTableButton.Visible = true;
+                        // Hide the error label if the connection is successful
+                        ErrorLabel.Text = string.Empty;
+                        ErrorLabel.Visible = false;
+
+                        TableList.Items.Clear();
+                        List<string> tableNames = GetSqlTableNames();
+                        foreach (string tableName in tableNames)
+                        {
+                            TableList.Items.Add(new ListItem(tableName));
+                        }
+
+                        TableList.Visible = true;
+                        SelectTableButton.Visible = true;
+
+
+                        SqlServerNameLabel.Visible = false;
+                        SqlServerName.Visible = false;
+
+                        DatabaseNameLabel.Visible = false;
+                        DatabaseName.Visible = false;
+                        ConnectDatabase.Visible = false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ErrorLabel.Text = "Error: " + ex.Message;
+                    ErrorLabel.Visible = true;
                 }
             }
-            catch (Exception ex)
-            {
-                SQLConnectionErrorLabel.Text = "Error: " + ex.Message;
-                SQLConnectionErrorLabel.Visible = true;
-            }
+            
         }
 
         // Retrieves a list of SQL Server table names
@@ -215,7 +244,11 @@ namespace exceltosql
 
             GenerateMappingForm(); // Generate mapping form
 
-            ExecuteButton.Visible = true;
+            InsertDataButton.Visible = true;
+
+
+            TableList.Visible = false;
+            SelectTableButton.Visible = false;
         }
 
             // Retrieves a list of column names for a specific SQL Server table
@@ -272,7 +305,7 @@ namespace exceltosql
                 }
             }
 
-        protected void ExecuteButton_Click(object sender, EventArgs e)
+        protected void InsertDataButton_Click(object sender, EventArgs e)
         {
             // Get column mappings from form
             Dictionary<string, string> mappings = GetColumnMappings();
@@ -299,20 +332,6 @@ namespace exceltosql
                 }
             }
 
-            // Print the first element of mappedData
-            KeyValuePair<string, List<string>> firstEntry = mappedData.First();
-
-            System.Diagnostics.Debug.WriteLine("----- Mapped Data: First Entry -----");
-            System.Diagnostics.Debug.WriteLine($"Key: {firstEntry.Key}");
-
-            // Print all values in the list:
-            System.Diagnostics.Debug.WriteLine("Values:");
-            foreach (string value in firstEntry.Value)
-            {
-                System.Diagnostics.Debug.WriteLine(value);
-            }
-
-
             // Prepare data for insertion
             List<Dictionary<string, string>> dataToBeInserted = new List<Dictionary<string, string>>();
             for (int i = 0; i < mappedData.First().Value.Count; i++)
@@ -325,9 +344,27 @@ namespace exceltosql
                 dataToBeInserted.Add(row);
             }
 
-            
+            try
+            {
+                InsertData(dataToBeInserted); // Insert data into SQL Server
 
-            InsertData(dataToBeInserted); // Insert data into SQL Server
+                // Show the success label
+                SuccessLabel.Visible = true;
+                InsertAgainButton.Visible = true;
+
+                mappingContainer.Controls.Clear();
+                ViewState.Clear();
+                InsertDataButton.Visible = false;
+
+                ErrorLabel.Text = string.Empty;
+                ErrorLabel.Visible = false;
+            }
+            catch (Exception ex)
+            {
+                // Display the error message in the ErrorLabel
+                ErrorLabel.Text = "Error: " + ex.Message;
+                ErrorLabel.Visible = true;
+            }
         }
 
             // Extracts user-defined column mappings from the form
@@ -387,18 +424,59 @@ namespace exceltosql
                                 command.ExecuteNonQuery(); // Execute insert query
                             }
                         }
-
-                        // Clear the error label if the insertion is successful
-                        ExecuteErrorLabel.Text = string.Empty;
-                        ExecuteErrorLabel.Visible = false;
                     }
-                    catch (Exception ex)
+                    catch
                     {
-                        // Display the error message in the ErrorLabel
-                        ExecuteErrorLabel.Text = "Error: " + ex.Message;
-                        ExecuteErrorLabel.Visible = true;
+                        // Rethrow the exception to be handled in the calling method
+                        throw;
                     }
                 }
             }
+
+        protected void InsertAgainButton_Click(object sender, EventArgs e)
+        {
+            SuccessLabel.Visible = false;
+            InsertAgainButton.Visible = false;
+
+            ExcelFileUpload.Visible = true;
+            UploadButton.Visible = true;
+        }
+
+        //bigint
+        //binary(50)
+        //bit
+        //char(10)
+        //date
+        //datetime
+        //datetime2(7)
+        //datetimeoffset(7)
+        //decimal(18, 0)
+        //float
+        //geography
+        //geometry
+        //hierarchyid
+        //image
+        //int
+        //money
+        //nchar(10)
+        //ntext
+        //numeric(18, 0)
+        //nvarchar(50)
+        //nvarchar(MAX)
+        //real
+        //smalldatetime
+        //smallint
+        //smallmoney
+        //sql_variant
+        //text
+        //time(7)
+        //timestamp
+        //tinyint
+        //uniqueidentifier
+        //varbinary(50)
+        //varbinary(MAX)
+        //varchar(50)
+        //varchar(MAX)
+        //xml
     }
 }
